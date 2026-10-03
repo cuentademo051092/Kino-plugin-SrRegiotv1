@@ -1,4 +1,4 @@
-// Sr. Regio TV (v0.3.0): TV en vivo con la lista TV 1 de Sr. Regio.
+// Sr. Regio TV (v0.3.1): TV en vivo con la lista TV 1 de Sr. Regio.
 // - Busca sola la clave vigente (p. ej. 280926) en Notiregio.
 // - Se salta la publicidad del creador (PayPal, Facebook, Telegram...).
 // - Reparte los canales por categorías según palabras del nombre; lo que no encaje va a "Otros".
@@ -44,6 +44,9 @@ const CATEGORIAS = [
   },
 ];
 const OTROS = { id: "otros", titulo: "Otros" };
+
+// Orden en que se muestran las categorías en Kino (no tiene que ser el mismo en que se revisan).
+const ORDEN = ["deportes", "noticias", "documentales", "cine-series", "musica-radio", "infantiles", "otros"];
 
 // Memoria de corta vida mientras el plugin sigue abierto (evita bajar la lista dos veces seguidas).
 let memoria = null;
@@ -220,9 +223,9 @@ async function cargarCanales() {
 export async function liveCategories() {
   const canales = await cargarCanales();
   const con = new Set(canales.map((c) => c.categoryId));
-  return [...CATEGORIAS, OTROS]
-    .filter((c) => con.has(c.id))
-    .map((c) => ({ id: c.id, title: c.titulo }));
+  const todas = [...CATEGORIAS, OTROS].filter((c) => con.has(c.id));
+  todas.sort((a, b) => ORDEN.indexOf(a.id) - ORDEN.indexOf(b.id));
+  return todas.map((c) => ({ id: c.id, title: c.titulo }));
 }
 
 export async function liveChannels(args) {
