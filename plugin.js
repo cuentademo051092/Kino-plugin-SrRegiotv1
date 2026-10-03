@@ -1,12 +1,53 @@
-// Sr. Regio TV (v0.2.0): TV en vivo con la lista TV 1 de Sr. Regio.
+// Sr. Regio TV (v0.3.0): TV en vivo con la lista TV 1 de Sr. Regio.
 // - Busca sola la clave vigente (p. ej. 280926) en Notiregio.
-// - Descarga la lista y se salta las entradas de publicidad del creador (PayPal, Facebook, Telegram...).
+// - Se salta la publicidad del creador (PayPal, Facebook, Telegram...).
+// - Reparte los canales por categorías según palabras del nombre; lo que no encaje va a "Otros".
 
 const LISTAS = "http://srregio.net";
 const NOTICIAS = "https://srregio.net/notiregio/";
-const CATEGORIA = "sr-regio-tv1";
 const POR_PAGINA = 500;
 const SEIS_HORAS = 6 * 60 * 60 * 1000;
+const CINCO_MINUTOS = 5 * 60 * 1000;
+
+// Categorías en el orden en que se revisan: la primera que encaja gana.
+// Para agregar palabras, basta con sumarlas dentro del paréntesis separadas por "|".
+const CATEGORIAS = [
+  {
+    id: "infantiles",
+    titulo: "Infantiles",
+    patron: /\b(baby ?(tv|first)|cartoon|cartoonito|disney|nick(elodeon| jr)?|boomerang|discovery kids|tooncast|toonami|pakapaka|paka paka|clan|zoo ?moo|kids|infantil|junior|peppa|bob esponja|spongebob|pocoyo|dibujos|animax|ben 10)\b/,
+  },
+  {
+    id: "deportes",
+    titulo: "Deportes",
+    patron: /(deporte|sport|futbol|espn|\bdazn\b|\bnfl\b|\bnba\b|\bmlb\b|\bufc\b|\bwwe\b|\bf1\b|tudn|\bgol\b|win sports|\btyc\b|bein|\bliga\b|golf|racing|motor|boxeo|lucha|olimp)/,
+  },
+  {
+    id: "noticias",
+    titulo: "Noticias",
+    patron: /(noticia|news|\bcnn\b|jazeera|\bbbc\b|france ?24|\bdw\b|euronews|milenio|foro ?tv|24 ?horas|24h|ntn24|\btn\b|\brt\b|\bnhk\b|cnbc|bloomberg|c5n|telesur|noticiero|informativ)/,
+  },
+  {
+    id: "documentales",
+    titulo: "Documentales",
+    patron: /(discovery|animal planet|nat(ional)? ?geo|\bhistor|investigation|\bh2\b|\btlc\b|a&e|smithsonian|science|ciencia|docu|\btravel|viajes|food network|cocina|hgtv)/,
+  },
+  {
+    id: "cine-series",
+    titulo: "Cine y series",
+    patron: /(cine|cinema|hbo|\bmax\b|\btnt\b|universal|warner|\baxn\b|sony|\bamc\b|\bfxx?\b|paramount|golden|lifetime|\bspace\b|\btcm\b|\bstar (channel|series|life|premium)\b|\btbs\b|comedy central|film|movie|pelicula|serie|novela|hallmark)/,
+  },
+  {
+    id: "musica-radio",
+    titulo: "Música y radio",
+    patron: /(\bmtv\b|vh1|telehit|\bhtv\b|musi[ck]|radio|banda|ranchera|sonora|tropical|reggaeton|salsa|ritmoson|\bexa\b)/,
+  },
+];
+const OTROS = { id: "otros", titulo: "Otros" };
+
+// Memoria de corta vida mientras el plugin sigue abierto (evita bajar la lista dos veces seguidas).
+let memoria = null;
+let memoriaHora = 0;
 
 // ---------- Clave vigente ----------
 
@@ -74,21 +115,34 @@ async function obtenerClave() {
 
 // ---------- Lectura de la lista M3U ----------
 
-// Entradas que son publicidad del creador y no canales.
-function esPublicidad(nombre, url) {
-  if (/sr_regio/i.test(url)) return true;
-  return /^::|^@|paypal\.me|t\.me\/|facebook\.com|https?:\/\//i.test(nombre);
-}
-
-function crearId(nombre, usados) {
-  let base = nombre
+// Minúsculas y sin tildes, para comparar nombres.
+function plano(texto) {
+  return texto
     .toLowerCase()
     .replace(/[áàäâ]/g, "a")
     .replace(/[éèëê]/g, "e")
     .replace(/[íìïî]/g, "i")
     .replace(/[óòöô]/g, "o")
     .replace(/[úùüû]/g, "u")
-    .replace(/ñ/g, "n")
+    .replace(/ñ/g, "n");
+}
+
+// Entradas que son publicidad del creador y no canales.
+function esPublicidad(nombre, url) {
+  if (/sr_regio/i.test(url)) return true;
+  return /^::|^@|paypal\.me|t\.me\/|facebook\.com|https?:\/\//i.test(nombre);
+}
+
+function categoriaDe(nombre) {
+  const n = plano(nombre);
+  for (const c of CATEGORIAS) {
+    if (c.patron.test(n)) return c.id;
+  }
+  return OTROS.id;
+}
+
+function crearId(nombre, usados) {
+  let base = plano(nombre)
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 100);
@@ -125,7 +179,7 @@ function leerLista(texto) {
         const canal = {
           id: crearId(pendiente.nombre, usados),
           title: pendiente.nombre.slice(0, 200),
-          categoryId: CATEGORIA,
+          categoryId: categoriaDe(pendiente.nombre),
           stream: { url: linea },
         };
         if (/^https?:\/\//i.test(pendiente.logo)) canal.logo = pendiente.logo;
@@ -142,6 +196,8 @@ async function descargarLista(clave) {
 }
 
 async function cargarCanales() {
+  await null;
+  if (memoria && Date.now() - memoriaHora < CINCO_MINUTOS) return memoria;
   let clave = await obtenerClave();
   let r = await descargarLista(clave);
   // Si la clave guardada quedó vieja, se busca la nueva una vez más.
@@ -153,25 +209,31 @@ async function cargarCanales() {
   if (!r.ok) throw kino.error("unavailable", "la lista respondió " + r.status);
   const canales = leerLista(r.text());
   if (!canales.length) throw kino.error("unavailable", "la lista llegó vacía");
+  memoria = canales;
+  memoriaHora = Date.now();
   return canales;
 }
 
 // ---------- Lo que Kino llama ----------
 
+// Solo se muestran las categorías que tienen canales.
 export async function liveCategories() {
-  await null;
-  return [{ id: CATEGORIA, title: "Sr. Regio TV" }];
+  const canales = await cargarCanales();
+  const con = new Set(canales.map((c) => c.categoryId));
+  return [...CATEGORIAS, OTROS]
+    .filter((c) => con.has(c.id))
+    .map((c) => ({ id: c.id, title: c.titulo }));
 }
 
 export async function liveChannels(args) {
   await null;
   const categoryId = args && args.categoryId;
-  if (categoryId !== CATEGORIA) return { items: [] };
   const desde = Math.max(0, Number(args && args.cursor) || 0);
   const todos = await cargarCanales();
-  const items = todos.slice(desde, desde + POR_PAGINA);
+  const deLaCategoria = todos.filter((c) => c.categoryId === categoryId);
+  const items = deLaCategoria.slice(desde, desde + POR_PAGINA);
   const resultado = { items };
-  if (desde + POR_PAGINA < todos.length) resultado.next = String(desde + POR_PAGINA);
+  if (desde + POR_PAGINA < deLaCategoria.length) resultado.next = String(desde + POR_PAGINA);
   return resultado;
 }
 
