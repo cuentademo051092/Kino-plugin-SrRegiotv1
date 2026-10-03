@@ -1,7 +1,7 @@
 {
   "id": "tv-srregio",
   "name": "Sr. Regio TV 1",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "apiVersion": 3,
   "entry": "plugin.js",
   "icon": "icon.png",
@@ -9,7 +9,8 @@
   "author": "Cuenta Demo",
   "homepage": "https://srregio.net/notiregio/",
   "hosts": [
-    "srregio.net"
+    "srregio.net",
+    "www.srregio.net"
   ],
   "capabilities": ["home", "resolve", "channels"],
   "liveStreamHosts": "any"

@@ -1,4 +1,4 @@
-const PLAYLIST_URL = "http://srregio.net/280926/tv.m3u";
+const PLAYLIST_URL = "https://srregio.net/280926/tv.m3u";
 
 function parseM3U(text) {
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
