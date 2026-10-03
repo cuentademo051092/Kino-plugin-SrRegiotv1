@@ -1,10 +1,10 @@
 {
   "id": "sr-regio-tv",
   "name": "Sr. Regio TV",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "apiVersion": 3,
   "entry": "plugin.js",
-  "description": "TV en vivo con las listas M3U de Sr. Regio. Busca sola la clave nueva de cada actualización.",
+  "description": "TV en vivo con la lista TV 1 de Sr. Regio, sin la publicidad del creador. Busca sola la clave nueva.",
   "hosts": [
     { "host": "srregio.net", "insecureHttp": true }
   ],
