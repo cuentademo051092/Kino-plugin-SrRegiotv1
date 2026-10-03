@@ -1,17 +1,22 @@
 {
-  "id": "tv-srregio",
-  "name": "Sr. Regio TV 1",
-  "version": "0.1.1",
+  "id": "sr-regio-tv",
+  "name": "Sr. Regio TV",
+  "version": "0.1.0",
   "apiVersion": 3,
   "entry": "plugin.js",
-  "icon": "icon.png",
-  "description": "Lista TV 1 de Sr. Regio para Kino TV.",
-  "author": "Cuenta Demo",
-  "homepage": "https://srregio.net/notiregio/",
+  "description": "TV en vivo con las listas M3U de Sr. Regio. Busca sola la clave nueva de cada actualización.",
   "hosts": [
-    "srregio.net",
-    "www.srregio.net"
+    { "host": "srregio.net", "insecureHttp": true }
   ],
+  "liveStreamHosts": "any",
   "capabilities": ["home", "resolve", "channels"],
-  "liveStreamHosts": "any"
+  "settings": [
+    {
+      "key": "clave",
+      "label": "Clave de la lista (opcional)",
+      "type": "text",
+      "hint": "Déjala vacía para buscarla sola. Ejemplo: 280926"
+    }
+  ],
+  "color": "#C8102E"
 }
