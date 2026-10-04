@@ -1,4 +1,4 @@
-// Sr. Regio TV (v0.4.2): TV en vivo con la lista TV 1 de Sr. Regio.
+// Sr. Regio TV (v0.3.1): TV en vivo con la lista TV 1 de Sr. Regio.
 // - Busca sola la clave vigente (p. ej. 280926) en Notiregio.
 // - Se salta la publicidad del creador (PayPal, Facebook, Telegram...).
 // - Reparte los canales por categorías según palabras del nombre; lo que no encaje va a "Otros".
@@ -47,12 +47,6 @@ const OTROS = { id: "otros", titulo: "Otros" };
 
 // Orden en que se muestran las categorías en Kino (no tiene que ser el mismo en que se revisan).
 const ORDEN = ["deportes", "noticias", "documentales", "cine-series", "musica-radio", "infantiles", "otros"];
-
-// Canales sueltos que se toman de la lista TV 3 (nombre tal como aparece, sin importar mayúsculas ni tildes).
-const EXTRAS_TV3 = ["CLARO SPORTS HD", "FOX SPORTS 2", "FOX SPORTS 3 H264"];
-
-// Canales de TV 1 que no funcionan y se ocultan (los reemplazan los de TV 3).
-const EXCLUIDOS_TV1 = ["FOX SPORTS 1", "PREUBA FOX SPORT 2"];
 
 // Memoria de corta vida mientras el plugin sigue abierto (evita bajar la lista dos veces seguidas).
 let memoria = null;
@@ -166,34 +160,9 @@ function crearId(nombre, usados) {
   return id;
 }
 
-// Nombre en minúsculas, sin tildes y con espacios simples, para comparar.
-function nombrePlano(nombre) {
-  return plano(nombre).replace(/\s+/g, " ").trim();
-}
-
-// Orden alfabético "natural": ignora mayúsculas y tildes, y pone ESPN 2 antes que ESPN 10.
-function compararNombres(a, b) {
-  const ta = nombrePlano(a.title).match(/\d+|\D+/g) || [];
-  const tb = nombrePlano(b.title).match(/\d+|\D+/g) || [];
-  const n = Math.min(ta.length, tb.length);
-  for (let i = 0; i < n; i++) {
-    const x = ta[i];
-    const y = tb[i];
-    if (x === y) continue;
-    if (/^\d/.test(x) && /^\d/.test(y)) {
-      const dif = Number(x) - Number(y);
-      if (dif !== 0) return dif;
-    } else {
-      return x < y ? -1 : 1;
-    }
-  }
-  return ta.length - tb.length;
-}
-
-// Si "permitidos" viene, solo se toman los canales cuyo nombre está en ese conjunto.
-// Si "excluidos" viene, se saltan los canales cuyo nombre está en ese conjunto.
-function leerLista(texto, usados, permitidos, excluidos) {
+function leerLista(texto) {
   const canales = [];
+  const usados = new Set();
   let pendiente = null;
   for (const bruta of texto.split(/\r?\n/)) {
     const linea = bruta.trim();
@@ -209,9 +178,7 @@ function leerLista(texto, usados, permitidos, excluidos) {
     }
     if (linea.startsWith("#")) continue;
     if (pendiente && /^https?:\/\//i.test(linea) && pendiente.nombre) {
-      const np = nombrePlano(pendiente.nombre);
-      const permitido = (!permitidos || permitidos.has(np)) && !(excluidos && excluidos.has(np));
-      if (permitido && !esPublicidad(pendiente.nombre, linea)) {
+      if (!esPublicidad(pendiente.nombre, linea)) {
         const canal = {
           id: crearId(pendiente.nombre, usados),
           title: pendiente.nombre.slice(0, 200),
@@ -231,30 +198,6 @@ async function descargarLista(clave) {
   return kino.fetch(LISTAS + "/" + clave + "/tv.m3u", { timeoutMs: 25000 });
 }
 
-// Suma a la lista los canales sueltos de TV 3. Si esa lista falla, TV 1 sigue funcionando igual.
-async function sumarCanalesDeTv3(clave, canales, usados) {
-  try {
-    const r = await kino.fetch(LISTAS + "/" + clave + "/tv3.m3u", { timeoutMs: 25000 });
-    if (!r.ok) {
-      kino.log("La lista TV 3 respondió " + r.status);
-      return;
-    }
-    const permitidos = new Set(EXTRAS_TV3.map(nombrePlano));
-    const extras = leerLista(r.text(), usados, permitidos, null);
-    if (extras.length < permitidos.size) {
-      kino.log("De TV 3 encontré " + extras.length + " de " + permitidos.size + " canales");
-    }
-    for (const e of extras) {
-      // Si ya existe un canal con el mismo nombre en TV 1, se distingue con "(TV 3)".
-      const repetido = canales.some((c) => nombrePlano(c.title) === nombrePlano(e.title));
-      if (repetido) e.title = (e.title + " (TV 3)").slice(0, 200);
-      canales.push(e);
-    }
-  } catch (e) {
-    kino.log("No pude leer la lista TV 3: " + e);
-  }
-}
-
 async function cargarCanales() {
   await null;
   if (memoria && Date.now() - memoriaHora < CINCO_MINUTOS) return memoria;
@@ -267,11 +210,8 @@ async function cargarCanales() {
     r = await descargarLista(clave);
   }
   if (!r.ok) throw kino.error("unavailable", "la lista respondió " + r.status);
-  const usados = new Set();
-  const canales = leerLista(r.text(), usados, null, new Set(EXCLUIDOS_TV1.map(nombrePlano)));
+  const canales = leerLista(r.text());
   if (!canales.length) throw kino.error("unavailable", "la lista llegó vacía");
-  await sumarCanalesDeTv3(clave, canales, usados);
-  canales.sort(compararNombres);
   memoria = canales;
   memoriaHora = Date.now();
   return canales;
