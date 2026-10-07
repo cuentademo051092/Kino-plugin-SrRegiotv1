@@ -1,22 +1,15 @@
 {
   "id": "sr-regio-tv",
   "name": "Sr. Regio TV",
-  "version": "0.4.3",
+  "version": "0.4.2",
   "apiVersion": 3,
   "entry": "plugin.js",
   "description": "TV en vivo con la lista TV 1 de Sr. Regio, por categorías y sin la publicidad del creador. Busca sola la clave nueva.",
   "hosts": [
-    {
-      "host": "srregio.net",
-      "insecureHttp": true
-    }
+    { "host": "srregio.net", "insecureHttp": true }
   ],
   "liveStreamHosts": "any",
-  "capabilities": [
-    "home",
-    "resolve",
-    "channels"
-  ],
+  "capabilities": ["home", "resolve", "channels"],
   "settings": [
     {
       "key": "clave",
@@ -25,6 +18,5 @@
       "hint": "Déjala vacía para buscarla sola. Ejemplo: 280926"
     }
   ],
-  "color": "#C8102E",
-  "icon": "icon.png"
+  "color": "#C8102E"
 }

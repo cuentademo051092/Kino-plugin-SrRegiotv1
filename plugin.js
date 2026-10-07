@@ -1,6 +1,3 @@
-// Logo que se usa cuando un canal no trae el suyo.
-const LOGO_RESPALDO = "https://raw.githubusercontent.com/cuentademo051092/kino-plugin-SrRegiotv/main/icon.png";
-
 // Sr. Regio TV (v0.4.2): TV en vivo con la lista TV 1 de Sr. Regio.
 // - Busca sola la clave vigente (p. ej. 280926) en Notiregio.
 // - Se salta la publicidad del creador (PayPal, Facebook, Telegram...).
@@ -221,7 +218,7 @@ function leerLista(texto, usados, permitidos, excluidos) {
           categoryId: categoriaDe(pendiente.nombre),
           stream: { url: linea },
         };
-        canal.logo = /^https?:\/\//i.test(pendiente.logo) ? pendiente.logo : LOGO_RESPALDO;
+        if (/^https?:\/\//i.test(pendiente.logo)) canal.logo = pendiente.logo;
         canales.push(canal);
       }
     }
